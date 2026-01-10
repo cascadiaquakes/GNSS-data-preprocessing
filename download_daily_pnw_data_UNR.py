@@ -35,7 +35,7 @@ from tqdm import tqdm
 class DownloadRecord:
     station: str
     url: str
-    status: str                 # downloaded | skipped_existing | not_found | failed
+    status: str  # downloaded | skipped_existing | not_found | failed
     http_status: Optional[int] = None
     bytes: Optional[int] = None
     path: Optional[str] = None
@@ -45,9 +45,9 @@ class DownloadRecord:
 # ----------------------------
 # IO helpers
 # ----------------------------
-def smoke_test(session: requests.Session, base_url: str, ext: str, timeout_s: tuple[float, float]) -> None:
+def smoke_test(session: requests.Session, base_url: str, ext: str, product_suffix: str,  timeout_s: tuple[float, float]) -> None:
     test_station = "ALBH"
-    url = build_station_url(base_url, test_station, ext)
+    url = build_station_url(base_url, test_station, ext, product_suffix)
     r = session.get(url, timeout=timeout_s, stream=True)
     r.raise_for_status()
     # pull a tiny bit to confirm body starts arriving
@@ -82,9 +82,16 @@ def read_station_names_from_subset_csv(path: Path, name_col: str = "name") -> li
     return names
 
 
-def build_station_url(base_url: str, station: str, ext: str) -> str:
+def build_station_url(base_url: str, station: str, ext: str, product_suffix: str = "") -> str:
+    base_url = base_url.rstrip("/")
     station = station.strip()
-    return f"{base_url.rstrip('/')}/{station}{ext}" if not base_url.endswith("/") else f"{base_url}{station}{ext}"
+    product_suffix = product_suffix.strip()
+
+    # allow passing ".NA" or "NA"
+    if product_suffix and not product_suffix.startswith("."):
+        product_suffix = "." + product_suffix
+
+    return f"{base_url}/{station}{product_suffix}{ext}"
 
 
 def atomic_write_bytes(dst: Path, content_iter: Iterable[bytes]) -> int:
@@ -103,15 +110,15 @@ def atomic_write_bytes(dst: Path, content_iter: Iterable[bytes]) -> int:
 # Download logic
 # ----------------------------
 def download_one(
-    session: requests.Session,
-    station: str,
-    url: str,
-    out_path: Path,
-    overwrite: bool,
-    timeout_s: tuple[float, float],
-    retries: int,
-    backoff_s: float,
-    logger: logging.Logger,
+        session: requests.Session,
+        station: str,
+        url: str,
+        out_path: Path,
+        overwrite: bool,
+        timeout_s: tuple[float, float],
+        retries: int,
+        backoff_s: float,
+        logger: logging.Logger,
 ) -> DownloadRecord:
     if out_path.exists() and not overwrite:
         return DownloadRecord(
@@ -146,7 +153,8 @@ def download_one(
             last_err = repr(e)
             if attempt < retries:
                 sleep_s = backoff_s * attempt
-                logger.warning(f"{station}: attempt {attempt}/{retries} failed ({last_err}); retrying in {sleep_s:.1f}s")
+                logger.warning(
+                    f"{station}: attempt {attempt}/{retries} failed ({last_err}); retrying in {sleep_s:.1f}s")
                 time.sleep(sleep_s)
             else:
                 break
@@ -155,30 +163,34 @@ def download_one(
 
 
 def run_download(
-    stations: list[str],
-    base_url: str,
-    out_dir: Path,
-    ext: str,
-    overwrite: bool,
-    timeout_s: tuple[float, float],
-    retries: int,
-    backoff_s: float,
-    user_agent: str,
-    logger: logging.Logger,
-) -> list[DownloadRecord]:
+        stations: list[str],
+        base_url: str,
+        out_dir: Path,
+        ext: str,
+        product_suffix:str,
+        overwrite: bool,
+        timeout_s: tuple[float, float],
+        retries: int,
+        backoff_s: float,
+        user_agent: str,
+        logger: logging.Logger
+        ) -> list[DownloadRecord]:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     session = requests.Session()
     session.headers.update({"User-Agent": user_agent})
 
     logger.info(f"Base URL: {base_url}")
-    smoke_test(session, base_url, ext, timeout_s)
+    smoke_test(session, base_url, ext, product_suffix, timeout_s)
     logger.info("Smoke test OK")
 
     records: list[DownloadRecord] = []
     for st in tqdm(stations, desc="Downloading", unit="station"):
-        url = build_station_url(base_url, st, ext)
-        out_path = out_dir / f"{st}{ext}"
+        url = build_station_url(base_url, st, ext, product_suffix)
+        suffix = product_suffix
+        if suffix and not suffix.startswith("."):
+            suffix = "." + suffix
+        out_path = out_dir / f"{st}{suffix}{ext}"
         rec = download_one(
             session=session,
             station=st,
@@ -253,6 +265,8 @@ def build_argparser() -> argparse.ArgumentParser:
                    default="https://geodesy.unr.edu/gps_timeseries/IGS20/tenv3/IGS20",
                    help="UNR base URL for tenv3 data")
     p.add_argument("--ext", type=str, default=".tenv3", help="File extension (default: .tenv3)")
+    p.add_argument("--product-suffix", type=str, default="",
+                   help="Suffix inserted after station code in filename (e.g. '.NA' -> STATION.NA.tenv3)")
 
     p.add_argument("--out", type=Path, required=True, help="Directory to write downloaded files")
     p.add_argument("--outputs", type=Path, default=Path("./outputs"), help="Directory for manifest + lists")
@@ -310,6 +324,7 @@ def main() -> int:
         base_url=args.base_url,
         out_dir=args.out,
         ext=args.ext,
+        product_suffix=args.product_suffix,
         overwrite=args.overwrite,
         timeout_s=(args.connect_timeout, args.read_timeout),
         retries=args.retries,
