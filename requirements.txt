@@ -1,0 +1,13 @@
+numpy>=1.22
+xarray>=2023.6
+
+h5netcdf>=1.1
+h5py>=3.9.0
+
+fsspec>=2023.6
+requests>=2.31
+aiohttp 
+
+matplotlib>=3.7
+
+ipykernel
