@@ -1,130 +1,106 @@
-# GNSS Daily Time Series – Preprocessing & NetCDF Build
+# GNSS Daily Time Series Preprocessing
 
-This repository provides a **clean, reproducible pipeline** to download, inspect, and package daily GNSS position time series into analysis‑ready **NetCDF/xarray** datasets.
+This repository builds analysis-ready GNSS time-series datasets from multiple providers and exports them as NetCDF files for `xarray`.
 
-The goal is to produce **one NetCDF per data provider** (UNR, PANGA, SOPAC) with a **shared schema**, making downstream analysis, comparison, and visualization straightforward.
+The common dataset structure is:
 
----
+- dimensions: `time`, `station`
+- station coordinates: `lat`, `lon`
+- displacement variables in meters: `east_m`, `north_m`, `up_m`
+- uncertainty variables in meters: `east_sigma_m`, `north_sigma_m`, `up_sigma_m`
 
-## What this repo does
+## Repository layout
 
-- Download daily GNSS time series (currently UNR `tenv3`)
-- Track download status with a manifest (`downloaded`, `skipped_existing`, `not_found`, `failed`)
-- Explore and QA the data in Jupyter notebooks
-- Filter stations and time ranges for scientific use
-- Export **provider‑specific NetCDF files** optimized for xarray
-
----
-
-## Data products
-
-Final outputs are **NetCDF files**, one per provider:
-
-```
-outputs/
-├── gnss_unr_2010_present_5y.nc
-├── gnss_panga_2010_present_5y.nc   (planned)
-└── gnss_sopac_2010_present_5y.nc   (planned)
-```
-
-### Common dataset layout
-
-**Dimensions**
-- `time` – daily `datetime64[ns]` (2010‑01‑01 → 2025‑12‑31)
-- `station` – GNSS station code
-
-**Station coordinates**
-- `lat` (deg)
-- `lon` (deg)
-- `elev_m` (m)
-- `depth_m` (m)
-
-**Data variables** (meters)
-- `east_m`, `north_m`, `up_m`
-- `east_sigma_m`, `north_sigma_m`, `up_sigma_m`
-
-All providers share the same schema.
-
----
-
-## Scientific filtering rules
-
-Applied consistently across providers:
-
-- **Time window:** 2010‑01‑01 → 2025‑12‑31 (inclusive)
-- **Minimum data span:** ≥ 5 years  
-  (campaign sites are removed)
-- **Cadence:** daily
-- **Units:** meters (precision ~1e‑4)
-
----
-
-## Repository structure
-
-```
+```text
 .
-├── download_unr_tenv3.py
-├── data/
-│   └── unr_tenv3/
-├── outputs/
-│   ├── manifest.csv
-│   ├── catalog_subset_bbox.csv
-│   └── gnss_unr_2010_present_5y.nc
-├── notebooks/
-│   ├── gnss_station_eda.ipynb
-│   └── gnss_unr_eda_xarray.ipynb
-└── README.md
+|-- data/
+|-- logs/
+|-- outputs/
+|-- resources/
+|-- download_daily_pnw_data_UNR.py
+|-- download_daily_pnw_data_panga.py
+|-- gnss_unr_eda_xarray.ipynb
+|-- gnss_panga_eda_xarray.ipynb
+|-- gnss_SOPAC_eda_xarray.ipynb
+|-- quick_start_guide.ipynb
+`-- README.md
 ```
 
----
+## Workflows
 
-## Quick start
+### UNR
 
-### 1) Download UNR data
+Use the download script first, then build and inspect the dataset in the notebook.
+
+1. Download the raw UNR files:
 
 ```bash
-python download_unr_tenv3.py   --subset-csv outputs/catalog_subset_bbox.csv   --out data/unr_tenv3   --outputs outputs   --limit 20
+python download_daily_pnw_data_UNR.py
 ```
 
-Remove `--limit` for the full run.
+2. Open:
 
----
+- `gnss_unr_eda_xarray.ipynb`
 
-### 2) Explore and QA
+This workflow uses the downloaded UNR `tenv3` files and builds the UNR NetCDF outputs.
 
-Open the EDA notebook:
+### PANGA
+
+PANGA is a direct download workflow. Download the source files from:
+
+- https://www.panga.org/
+
+Then open:
+
+- `gnss_panga_eda_xarray.ipynb`
+
+The current PANGA notebook targets `data/panga_cleaned_v2/`, where each station is stored as:
+
+- `STATION.lon`
+- `STATION.lat`
+- `STATION.rad`
+
+Each component file contains decimal year, residual displacement, and sigma. The notebook:
+
+- maps `.lon`, `.lat`, `.rad` to `east`, `north`, `up`
+- merges components by `dec_year`
+- builds the time index from decimal year
+- rounds to the nearest day after converting with the actual calendar-year length
+- filters stations using `resources/catalog_subset_bbox.csv`
+- exports `outputs/gnss_PANGA_2010_2025_5y_NA_v2.nc`
+
+### SOPAC
+
+SOPAC is also a direct download workflow. Download the source files from:
+
+- https://garner.ucsd.edu/pub/measuresESESES_products/Timeseries/WesternNorthAmerica/
+
+Then open:
+
+- `gnss_SOPAC_eda_xarray.ipynb`
+
+## Dependencies
+
+Install the Python dependencies with:
 
 ```bash
-jupyter notebook notebooks/gnss_unr_eda_xarray.ipynb
+pip install -r requirements.txt
 ```
 
-This notebook:
-- summarizes the manifest
-- plots sample station time series with uncertainties
-- builds the UNR NetCDF using xarray
+The notebooks expect a Python environment with:
 
----
+- `pandas`
+- `numpy`
+- `xarray`
+- `matplotlib`
+- Jupyter support
 
-## Design notes
+## Processed datasets and guide
 
-- Station metadata (lat/lon/elev/depth) comes from the station catalog, not the time series files.
-- Equipment changes are intentionally excluded and handled via a separate jump table.
-- NetCDF files are losslessly compressed for efficient storage and I/O.
-- Time is stored as **daily datetime**, not decimal year.
+Processed datasets are published on Zenodo:
 
----
+- https://zenodo.org/records/19616474
 
-## Data sources
+For a quick tutorial on how to open and use the processed data directly from zenodo, have a look at this notebook:
 
-- UNR: https://geodesy.unr.edu/gps_timeseries/
-- PANGA: https://www.geodesy.org/panga/officialresults/archives/panga_cleaned.zip
-- SOPAC: http://garner.ucsd.edu/pub/measuresESESES_products/Timeseries/WesternNorthAmerica/
-
----
-
-## Status
-
-- ✅ UNR pipeline complete
-- 🔧 PANGA parser planned
-- 🔧 SOPAC parser planned
-
+- `quick_start_guide.ipynb`
