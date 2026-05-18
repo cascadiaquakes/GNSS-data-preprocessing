@@ -99,7 +99,7 @@ The notebooks expect a Python environment with:
 
 Processed datasets are published on Zenodo:
 
-- https://zenodo.org/records/19616474
+- https://zenodo.org/records/20276956
 
 For a quick tutorial on how to open and use the processed data directly from zenodo, have a look at this notebook:
 
