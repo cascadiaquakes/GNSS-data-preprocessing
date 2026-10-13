@@ -1,5 +1,7 @@
 # GNSS Daily Time Series Preprocessing
 
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+
 This repository builds analysis-ready GNSS time-series datasets from multiple providers and exports them as NetCDF files for `xarray`.
 
 The common dataset structure is:
@@ -9,7 +11,11 @@ The common dataset structure is:
 - displacement variables in meters: `east_m`, `north_m`, `up_m`
 - uncertainty variables in meters: `east_sigma_m`, `north_sigma_m`, `up_sigma_m`
 
-## Repository layout
+**Processed datasets:** https://zenodo.org/records/20276956
+
+---
+
+## Repository Layout
 
 ```text
 .
@@ -104,3 +110,34 @@ Processed datasets are published on Zenodo:
 For a quick tutorial on how to open and use the processed data directly from zenodo, have a look at this notebook:
 
 - `quick_start_guide.ipynb`
+
+---
+
+## License
+
+This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE).
+
+---
+
+## Contacts
+
+- **Loïc Bachelot**, University of Oregon: [lbachelo@uoregon.edu](mailto:lbachelo@uoregon.edu)
+
+For bugs or questions, please [open an issue](https://github.com/cascadiaquakes/GNSS-data-preprocessing/issues).
+
+---
+
+## Acknowledgments
+
+<table>
+  <tr>
+    <td align="center" valign="middle">
+      <img src="https://raw.githubusercontent.com/cascadiaquakes/.github/main/assets/crescent-circle.png" alt="CRESCENT Logo" width="150" />
+    </td>
+    <td align="center" valign="middle">
+      <img src="https://raw.githubusercontent.com/cascadiaquakes/.github/main/assets/nsf-logo.png" alt="NSF Logo" width="450" />
+    </td>
+  </tr>
+</table>
+
+This project is supported by the National Science Foundation through the Cascadia Region Earthquake Science Center (CRESCENT), Cooperative Agreement EAR-2225286.
